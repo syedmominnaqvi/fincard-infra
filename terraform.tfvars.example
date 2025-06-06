@@ -1,5 +1,5 @@
 # AWS Configuration
-aws_region = "us-east-1"
+aws_region = "us-west-2"
 environment = "dev"
 project_name = "fincard"
 
@@ -10,7 +10,7 @@ private_subnet_cidrs = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
 
 # EC2 Configuration
 ec2_instance_type = "t3.small"
-ami_id = "ami-0230bd60aa48260c6" # Amazon Linux 2023 in us-east-1
+ami_id = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64" # Amazon Linux 2023 in us-west-2 (via SSM parameter)
 key_name = "devops-key"
 
 # Domain Name

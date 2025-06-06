@@ -44,7 +44,7 @@ variable "ec2_instance_type" {
 variable "ami_id" {
   description = "AMI ID for EC2 instances (Amazon Linux 2023)"
   type        = string
-  default     = "ami-0230bd60aa48260c6" # Amazon Linux 2023 in us-east-1, update for other regions
+  default     = "ami-0418306302097dbff" # Amazon Linux 2023 in us-west-2, update for other regions
 }
 
 variable "key_name" {
