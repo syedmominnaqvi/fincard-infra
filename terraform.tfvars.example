@@ -1,0 +1,43 @@
+# AWS Configuration
+aws_region = "us-east-1"
+environment = "dev"
+project_name = "fincard"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+private_subnet_cidrs = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+
+# EC2 Configuration
+ec2_instance_type = "t3.small"
+ami_id = "ami-0230bd60aa48260c6" # Amazon Linux 2023 in us-east-1
+key_name = "devops-key"
+
+# Domain Name
+domain_name = "jenkins-devops.store"
+
+# PostgreSQL RDS Configuration
+postgres_instance_class = "db.t3.micro"
+postgres_db_name = "fincard"
+postgres_username = "postgres"
+postgres_password = "YourStrongPasswordHere" # Replace with a secure password
+postgres_port = 5432
+
+# MySQL RDS Configuration
+mysql_instance_class = "db.t3.micro"
+mysql_db_name = "fincard_mysql"
+mysql_username = "admin"
+mysql_password = "YourStrongMySQLPasswordHere" # Replace with a secure password
+mysql_port = 3306
+
+# Database Storage
+db_storage = 20
+
+# Metabase Configuration
+metabase_db_user = "metabase"
+metabase_db_password = "YourStrongMetabasePasswordHere" # Replace with a secure password
+
+# Auto Scaling Group Configuration
+asg_min_size = 1
+asg_max_size = 3
+asg_desired_capacity = 1
