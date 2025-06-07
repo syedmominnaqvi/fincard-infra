@@ -32,6 +32,7 @@ sudo amazon-linux-extras enable epel -y
 sudo yum clean metadata
 sudo yum install -y epel-release
 
+
 # Install certbot and the nginx plugin from EPEL (Python 2 version works fine)
 sudo yum install -y certbot python2-certbot-nginx
 
@@ -75,3 +76,6 @@ sudo certbot --nginx -d jenkins-devops.store --non-interactive --agree-tos --ema
 
 # Add cron job to auto-renew certificates
 echo "0 0,12 * * * root python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
+
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban

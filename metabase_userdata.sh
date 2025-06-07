@@ -127,17 +127,17 @@ sudo -u ec2-user /home/ec2-user/mysql_tunnel.sh start
 
 # Create Metabase database if it doesn't exist
 echo "Setting up Metabase database..."
-PGPASSWORD="${postgres_password}" psql -h localhost -p 5433 -U "${postgres_username}" -d "${postgres_db_name}" -c "CREATE DATABASE metabase;" || echo "Database may already exist, continuing..."
+# PGPASSWORD="${postgres_password}" psql -h localhost -p 5433 -U "${postgres_username}" -d "${postgres_db_name}" -c "CREATE DATABASE metabase;" || echo "Database may already exist, continuing..."
 
 # Deploy Metabase using Docker with tunneled database connections
 echo "Starting Metabase container..."
 sudo docker run -d -p 3000:3000 --name metabase \
-  -e "MB_DB_TYPE=postgres" \
-  -e "MB_DB_DBNAME=metabase" \
-  -e "MB_DB_PORT=5433" \
-  -e "MB_DB_USER=${postgres_username}" \
-  -e "MB_DB_PASS=${postgres_password}" \
-  -e "MB_DB_HOST=localhost" \
+  -e "MB_DB_TYPE=mysql" \
+  -e "MB_DB_DBNAME=fincard_mysql" \
+  -e "MB_DB_PORT=${mysql_port}" \
+  -e "MB_DB_USER=${mysql_username}" \
+  -e "MB_DB_PASS=${mysql_password}" \
+  -e "MB_DB_HOST=${mysql_host}" \
   --network=host \
   metabase/metabase
 
@@ -160,6 +160,7 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        try_files $uri $uri/ =404;
     }
     
     # Let's Encrypt ACME challenge directory
@@ -200,7 +201,7 @@ echo "Restarting Nginx..."
 sudo systemctl restart nginx
 
 # Get SSL certificate using Let's Encrypt (non-blocking in case DNS isn't ready)
-echo "Requesting SSL certificate (will retry via cron if DNS isn't ready)..."
+echo "Requesting SSL certificate will retry via cron if DNS isn't ready..."
 sudo certbot --nginx -d bi.jenkins-devops.store --non-interactive --agree-tos --email momin.naqvi.31515@khi.iba.edu.pk --redirect || true
 
 # Add cron job to auto-renew certificates and retry certificate acquisition if needed
