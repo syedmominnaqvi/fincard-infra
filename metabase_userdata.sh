@@ -28,13 +28,9 @@ sudo yum install -y postgresql
 # node -v
 # npm -v
 
-# Enable EPEL repo
-sudo amazon-linux-extras enable epel -y
-sudo yum clean metadata
-sudo yum install -y epel-release
+# EPEL no longer needed (was used for certbot)
 
-# Install certbot and the nginx plugin from EPEL (Python 2 version works fine)
-sudo yum install -y certbot python2-certbot-nginx
+# Certbot no longer needed with ACM
 
 # Generate SSH key for tunneling if it doesn't exist
 echo "Setting up SSH keys for tunneling..."
@@ -163,16 +159,10 @@ server {
         try_files $uri $uri/ =404;
     }
     
-    # Let's Encrypt ACME challenge directory
-    location /.well-known/acme-challenge/ {
-        root /var/www/letsencrypt;
-    }
 }
 EOF
 
-# Create directory for Let's Encrypt verification
-sudo mkdir -p /var/www/letsencrypt
-sudo chown -R nginx:nginx /var/www/letsencrypt
+# SSL/TLS is now handled by ACM at the ALB level
 
 # Create connection scripts for the databases
 cat <<EOF > /home/ec2-user/connect_postgres.sh
@@ -200,12 +190,6 @@ echo "*/5 * * * * ec2-user /home/ec2-user/mysql_tunnel.sh start >/dev/null 2>&1"
 echo "Restarting Nginx..."
 sudo systemctl restart nginx
 
-# Get SSL certificate using Let's Encrypt (non-blocking in case DNS isn't ready)
-echo "Requesting SSL certificate will retry via cron if DNS isn't ready..."
-sudo certbot --nginx -d bi.jenkins-devops.store --non-interactive --agree-tos --email momin.naqvi.31515@khi.iba.edu.pk --redirect || true
-
-# Add cron job to auto-renew certificates and retry certificate acquisition if needed
-echo "0 0,12 * * * root python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
-echo "0 */6 * * * root certbot --nginx -d bi.jenkins-devops.store --non-interactive --agree-tos --email momin.naqvi.31515@khi.iba.edu.pk --redirect || true" | sudo tee -a /etc/crontab > /dev/null
+# SSL/TLS is now handled by ACM at the ALB level
 
 echo "Metabase instance setup completed!"
