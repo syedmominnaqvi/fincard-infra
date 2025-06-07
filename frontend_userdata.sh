@@ -64,7 +64,3 @@ EOF
 # Restart nginx to apply configuration
 sudo systemctl restart nginx
 
-# SSL/TLS is now handled by ACM at the ALB level
-
-sudo systemctl enable fail2ban
-sudo systemctl start fail2ban

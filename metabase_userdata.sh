@@ -190,6 +190,5 @@ echo "*/5 * * * * ec2-user /home/ec2-user/mysql_tunnel.sh start >/dev/null 2>&1"
 echo "Restarting Nginx..."
 sudo systemctl restart nginx
 
-# SSL/TLS is now handled by ACM at the ALB level
 
 echo "Metabase instance setup completed!"
