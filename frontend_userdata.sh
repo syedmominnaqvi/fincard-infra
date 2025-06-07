@@ -28,13 +28,7 @@ sudo yum install -y python3-pip
 # node -v
 # npm -v
 
-sudo amazon-linux-extras enable epel -y
-sudo yum clean metadata
-sudo yum install -y epel-release
-
-
-# Install certbot and the nginx plugin from EPEL (Python 2 version works fine)
-sudo yum install -y certbot python2-certbot-nginx
+# SSL/TLS is now handled by ACM at the ALB level
 
 cd /home/ec2-user
 sudo git clone https://github.com/syedmominnaqvi/devops-static-site/
@@ -43,7 +37,7 @@ cd /home/ec2-user/devops-static-site/frontend
 sudo docker build -t fincard-frontend .
 sudo docker run -d -p 9000:80 --name fincard-frontend fincard-frontend
 
-# Configure Nginx as reverse proxy with SSL support
+# Configure Nginx as reverse proxy (HTTP only, SSL handled at ALB)
 cat <<EOF | sudo tee /etc/nginx/conf.d/frontend.conf
 server {
     listen 80;
@@ -57,25 +51,20 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
-    # Let's Encrypt ACME challenge directory
-    location /.well-known/acme-challenge/ {
-        root /var/www/letsencrypt;
+    # Health check endpoint for ALB
+    location /health {
+        return 200 'OK';
+        add_header Content-Type text/plain;
     }
 }
 EOF
 
-# Create directory for Let's Encrypt verification
-sudo mkdir -p /var/www/letsencrypt
-sudo chown -R nginx:nginx /var/www/letsencrypt
+# SSL/TLS is now handled by ACM at the ALB level
 
 # Restart nginx to apply configuration
 sudo systemctl restart nginx
 
-# Get SSL certificate using Let's Encrypt
-sudo certbot --nginx -d jenkins-devops.store --non-interactive --agree-tos --email momin.naqvi.31515@khi.iba.edu.pk --redirect
-
-# Add cron job to auto-renew certificates
-echo "0 0,12 * * * root python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
+# SSL/TLS is now handled by ACM at the ALB level
 
 sudo systemctl enable fail2ban
 sudo systemctl start fail2ban
