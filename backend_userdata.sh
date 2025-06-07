@@ -21,9 +21,6 @@ sudo usermod -aG docker ec2-user
 echo "Installing MySQL client (mariadb)..."
 sudo yum install -y mariadb
 echo "Installing python3-pip..."
-sudo yum install -y python3-pip
-sudo yum install -y postgresql
-
 
 # Node.js 16
 # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -71,7 +68,7 @@ echo "Building Docker image..."
 sudo docker build -t fincard-backend .
 
 # Set up SSH tunnel scripts for database access
-cat <<EOF > /home/ec2-user/postgres_tunnel.sh
+cat <<'EOF' > /home/ec2-user/postgres_tunnel.sh
 #!/bin/bash
 # Create SSH tunnel to PostgreSQL RDS
 # Usage: ./postgres_tunnel.sh start|stop
@@ -102,7 +99,7 @@ case "$1" in
 esac
 EOF
 
-cat <<EOF > /home/ec2-user/mysql_tunnel.sh
+cat <<'EOF' > /home/ec2-user/mysql_tunnel.sh
 #!/bin/bash
 # Create SSH tunnel to MySQL RDS
 # Usage: ./mysql_tunnel.sh start|stop
