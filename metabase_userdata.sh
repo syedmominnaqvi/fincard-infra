@@ -1,41 +1,40 @@
 #!/bin/bash
-
-# Log startup steps to help with debugging
+set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-echo "Starting metabase instance setup..."
 
-# Update and install required packages
-echo "Updating packages..."
-sudo dnf update -y
-echo "Installing git..."
-sudo dnf install -y git
-echo "Installing nginx..."
-sudo dnf install -y nginx
-echo "Installing docker..."
-sudo dnf install -y docker
-echo "Installing MySQL client..."
-sudo dnf install -y mysql
-echo "Installing PostgreSQL client..."
-sudo dnf install -y postgresql15
-
-# Install Node.js 20.x
-echo "Installing Node.js..."
-sudo dnf install -y nodejs20
-
-# Install Certbot for Let's Encrypt SSL
-echo "Installing Certbot dependencies..."
-sudo dnf install -y augeas-libs
-echo "Installing Certbot..."
-sudo python3 -m pip install certbot certbot-nginx
-
-# Configure and start services
-echo "Configuring and starting services..."
-sudo mkdir -p /etc/nginx/conf.d
+sudo yum update -y
+sudo yum install -y git
+sudo amazon-linux-extras install -y nginx1
 sudo systemctl enable nginx
 sudo systemctl start nginx
+sudo amazon-linux-extras install -y docker
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
+sudo yum install -y python3-pip
+sudo yum install -y mariadb
+sudo yum install -y postgresql
+
+# # Node.js 16
+# curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+# source ~/.nvm/nvm.sh
+
+# # Install Node.js 16
+# nvm install 16
+# nvm use 16
+# nvm alias default 16
+
+# # Verify
+# node -v
+# npm -v
+
+# Enable EPEL repo
+sudo amazon-linux-extras enable epel -y
+sudo yum clean metadata
+sudo yum install -y epel-release
+
+# Install certbot and the nginx plugin from EPEL (Python 2 version works fine)
+sudo yum install -y certbot python2-certbot-nginx
 
 # Generate SSH key for tunneling if it doesn't exist
 echo "Setting up SSH keys for tunneling..."

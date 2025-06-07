@@ -143,6 +143,7 @@ resource "aws_autoscaling_group" "frontend" {
   desired_capacity    = var.asg_desired_capacity
   vpc_zone_identifier = aws_subnet.private.*.id
   target_group_arns   = [aws_lb_target_group.frontend.arn]
+  depends_on = [aws_nat_gateway.main]
 
   launch_template {
     id      = aws_launch_template.frontend.id
