@@ -4,6 +4,7 @@ exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 sleep 90
 
+echo "Starting frontend instance setup..."
 sudo yum update -y
 sudo yum install -y git
 sudo amazon-linux-extras install -y nginx1
@@ -14,6 +15,7 @@ sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
 sudo yum install -y python3-pip
+echo "Successfully installed required packages."
 
 # Node.js 16
 # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -28,8 +30,7 @@ sudo yum install -y python3-pip
 # node -v
 # npm -v
 
-# SSL/TLS is now handled by ACM at the ALB level
-
+echo "Building and running frontend application..."
 cd /home/ec2-user
 sudo git clone https://github.com/syedmominnaqvi/devops-static-site/
 sudo chown -R ec2-user:ec2-user devops-static-site
@@ -38,6 +39,7 @@ sudo docker build -t fincard-frontend .
 sudo docker run -d -p 9000:80 --name fincard-frontend fincard-frontend
 
 # Configure Nginx as reverse proxy (HTTP only, SSL handled at ALB)
+echo "Configuring Nginx as reverse proxy..."
 cat <<EOF | sudo tee /etc/nginx/conf.d/frontend.conf
 server {
     listen 80;
@@ -59,8 +61,10 @@ server {
 }
 EOF
 
-# SSL/TLS is now handled by ACM at the ALB level
+echo "Waiting for frontend container to start..."
+sleep 30
 
 # Restart nginx to apply configuration
+echo "Restarting Nginx..."
 sudo systemctl restart nginx
 

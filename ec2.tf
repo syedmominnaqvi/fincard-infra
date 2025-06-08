@@ -91,6 +91,8 @@ resource "aws_launch_template" "metabase" {
       mysql_db_name       = var.mysql_db_name
       mysql_username      = var.mysql_username
       mysql_password      = var.mysql_password
+      s3_bucket_name      = aws_s3_bucket.scripts.id
+      script_version      = local.script_version
     })
   )
 
