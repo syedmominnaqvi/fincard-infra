@@ -18,9 +18,14 @@ sudo amazon-linux-extras install -y docker
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
+
 echo "Installing MySQL client (mariadb)..."
 sudo yum install -y mariadb
-echo "Installing python3-pip..."
+
+echo "Installing PostgreSQL client..."
+sudo amazon-linux-extras enable postgresql14
+sudo yum clean metadata
+sudo yum install -y postgresql
 
 # Node.js 16
 # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
