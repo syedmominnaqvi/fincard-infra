@@ -150,6 +150,18 @@ variable "metabase_db_password" {
   default     = "FinCard123!"
 }
 
+variable "metabase_admin_email" {
+  description = "Email for the Metabase admin user"
+  type        = string
+  default     = "admin@fincard.com"
+}
+
+variable "metabase_admin_password" {
+  description = "Password for the Metabase admin user"
+  type        = string
+  default     = "FinCard123!"
+}
+
 # Auto Scaling Group Variables
 variable "asg_min_size" {
   description = "Minimum size of the auto scaling group"
@@ -168,5 +180,3 @@ variable "asg_desired_capacity" {
   type        = number
   default     = 1
 }
-
-# This SSL policy is already defined above at line 128

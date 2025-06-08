@@ -11,7 +11,11 @@ resource "aws_launch_template" "frontend" {
   }
 
   user_data = base64encode(
-    templatefile("${path.module}/frontend_userdata.sh", {})
+    templatefile("${path.module}/frontend_userdata.sh", {
+      project_name = var.project_name
+      environment  = var.environment
+      aws_region   = var.aws_region
+    })
   )
 
   tag_specifications {
@@ -41,16 +45,9 @@ resource "aws_launch_template" "backend" {
 
   user_data = base64encode(
     templatefile("${path.module}/backend_userdata.sh", {
-      postgres_host       = aws_db_instance.postgres.address
-      postgres_port       = var.postgres_port
-      postgres_db_name    = var.postgres_db_name
-      postgres_username   = var.postgres_username
-      postgres_password   = var.postgres_password
-      mysql_host          = aws_db_instance.mysql.address
-      mysql_port          = var.mysql_port
-      mysql_db_name       = var.mysql_db_name
-      mysql_username      = var.mysql_username
-      mysql_password      = var.mysql_password
+      project_name = var.project_name
+      environment  = var.environment
+      aws_region   = var.aws_region
     })
   )
 
@@ -81,16 +78,9 @@ resource "aws_launch_template" "metabase" {
 
   user_data = base64encode(
     templatefile("${path.module}/metabase_userdata.sh", {
-      postgres_host       = aws_db_instance.postgres.address
-      postgres_port       = var.postgres_port
-      postgres_db_name    = var.postgres_db_name
-      postgres_username   = var.postgres_username
-      postgres_password   = var.postgres_password
-      mysql_host          = aws_db_instance.mysql.address
-      mysql_port          = var.mysql_port
-      mysql_db_name       = var.mysql_db_name
-      mysql_username      = var.mysql_username
-      mysql_password      = var.mysql_password
+      project_name        = var.project_name
+      environment         = var.environment
+      aws_region          = var.aws_region
       s3_bucket_name      = aws_s3_bucket.scripts.id
       script_version      = local.script_version
     })
