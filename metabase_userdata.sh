@@ -17,6 +17,7 @@ sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
 sudo yum install -y python3-pip
+sudo yum install -y jq
 
 # Install MySQL client properly
 echo "Installing MySQL client..."
@@ -303,16 +304,29 @@ else
   sudo docker pull metabase/metabase
   
   # Run the Metabase container
+  # Use H2 embedded database for Metabase's own data to avoid auth issues
+  # We'll still connect to MySQL for the data analysis
+  echo "Starting Metabase with H2 embedded database..."
   sudo docker run -d -p 3000:3000 --name metabase \
-    -e "MB_DB_TYPE=mysql" \
-    -e "MB_DB_DBNAME=fincard_mysql" \
-    -e "MB_DB_PORT=${mysql_port}" \
-    -e "MB_DB_USER=${mysql_username}" \
-    -e "MB_DB_PASS=${mysql_password}" \
-    -e "MB_DB_HOST=${mysql_host}" \
+    -e "MB_DB_TYPE=h2" \
+    -e "MB_DB_FILE=/metabase-data/metabase.db" \
+    -e "MB_SETUP_ADMIN_EMAIL=admin@fincard.com" \
+    -e "MB_SETUP_ADMIN_FIRST_NAME=Admin" \
+    -e "MB_SETUP_ADMIN_LAST_NAME=User" \
+    -e "MB_SETUP_ADMIN_PASSWORD=FinCard123!" \
+    -v /home/ec2-user/metabase-data:/metabase-data \
     --restart always \
     --network=host \
     metabase/metabase
+    
+  echo "Metabase will use H2 embedded database for its own data."
+  echo "It will be configured to connect to MySQL for analytics data separately."
+fi
+
+# Create directory for Metabase data if it doesn't exist
+if [ ! -d /home/ec2-user/metabase-data ]; then
+  sudo mkdir -p /home/ec2-user/metabase-data
+  sudo chown ec2-user:ec2-user /home/ec2-user/metabase-data
 fi
 
 # Verify Metabase container is running

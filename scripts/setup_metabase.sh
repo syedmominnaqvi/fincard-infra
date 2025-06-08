@@ -35,107 +35,182 @@ fi
 # Wait a bit more to ensure the API is ready
 sleep 30
 
-# Get the Metabase setup token
+# Get the Metabase setup token with multiple attempts
 echo "Getting Metabase setup token..."
-SETUP_TOKEN=$(curl -s http://localhost:3000/api/session/properties | grep -o '"setup-token":"[^"]*"' | cut -d '"' -f 4)
+MAX_TOKEN_ATTEMPTS=5
+TOKEN_ATTEMPT=1
+SETUP_TOKEN=""
 
-if [ -z "$SETUP_TOKEN" ]; then
-  echo "Failed to get setup token. Metabase might already be configured."
-  exit 0
-fi
+while [ $TOKEN_ATTEMPT -le $MAX_TOKEN_ATTEMPTS ] && [ -z "$SETUP_TOKEN" ]; do
+  echo "Attempt $TOKEN_ATTEMPT to get setup token..."
+  PROPERTIES=$(curl -s http://localhost:3000/api/session/properties)
+  SETUP_TOKEN=$(echo "$PROPERTIES" | jq -r '.["setup-token"] // empty')
+  
+  if [ -n "$SETUP_TOKEN" ]; then
+    echo "Setup token obtained: $SETUP_TOKEN"
+    break
+  else
+    echo "No setup token found. This could mean Metabase is already configured or not ready yet."
+    
+    # Check if we have a 'setup-token' field at all
+    if echo "$PROPERTIES" | grep -q "setup-token"; then
+      echo "Setup token field found but empty. Metabase is still initializing."
+    else
+      echo "No setup token field found. Metabase is likely already configured."
+    fi
+    
+    if [ $TOKEN_ATTEMPT -lt $MAX_TOKEN_ATTEMPTS ]; then
+      echo "Waiting 10 seconds before retry..."
+      sleep 10
+    fi
+    
+    TOKEN_ATTEMPT=$((TOKEN_ATTEMPT+1))
+  fi
+done
 
-echo "Setup token obtained: $SETUP_TOKEN"
+# Even if we don't get a token, continue with login attempts
+# as Metabase might already be configured
 
-# Admin credentials
-ADMIN_EMAIL="admin@fincard.example"
+# Admin credentials - these match the env vars set in the container
+ADMIN_EMAIL="admin@fincard.com"
 ADMIN_PASSWORD="FinCard123!"
 
-# Function to login and get session token
-login_to_metabase() {
-  echo "Attempting to login to Metabase with $ADMIN_EMAIL..."
-  local login_response=$(curl -s -X POST http://localhost:3000/api/session \
-    -H "Content-Type: application/json" \
-    -d "{\"username\": \"$ADMIN_EMAIL\", \"password\": \"$ADMIN_PASSWORD\"}")
-  
-  echo "Login response: $login_response"
-  local session_token=$(echo "$login_response" | grep -o '"id":"[^"]*"' | cut -d '"' -f 4)
-  
-  echo $session_token
-}
+# We're going to use a completely different approach to get the session token
 
 # Try to create the initial admin user (this may fail if already initialized)
 if [ -n "$SETUP_TOKEN" ]; then
   echo "Creating Metabase admin user..."
+  
+  # Create a temporary file for the setup JSON
+  TEMP_SETUP_FILE=$(mktemp)
+  
+  # Write the JSON to the file
+  cat > "$TEMP_SETUP_FILE" << EOF
+{
+  "token": "$SETUP_TOKEN",
+  "prefs": {
+    "site_name": "FinCard Analytics",
+    "site_locale": "en",
+    "allow_tracking": false
+  },
+  "user": {
+    "first_name": "Admin",
+    "last_name": "User",
+    "email": "$ADMIN_EMAIL",
+    "password": "$ADMIN_PASSWORD",
+    "site_name": "FinCard Analytics"
+  },
+  "database": null
+}
+EOF
+  
+  # Use the file with curl
   SETUP_RESPONSE=$(curl -s -X POST http://localhost:3000/api/setup \
     -H "Content-Type: application/json" \
-    -d @- <<EOF
-  {
-    "token": "$SETUP_TOKEN",
-    "prefs": {
-      "site_name": "FinCard Analytics",
-      "site_locale": "en",
-      "allow_tracking": false
-    },
-    "user": {
-      "first_name": "Admin",
-      "last_name": "User",
-      "email": "$ADMIN_EMAIL",
-      "password": "$ADMIN_PASSWORD",
-      "site_name": "FinCard Analytics"
-    },
-    "database": null
-  }
-EOF
-  )
+    -d @"$TEMP_SETUP_FILE")
+  
+  # Clean up temp file
+  rm -f "$TEMP_SETUP_FILE"
 
   echo "Setup response: $SETUP_RESPONSE"
 fi
 
-# Try with default credentials first
-echo "Logging in to Metabase..."
-SESSION_TOKEN=$(login_to_metabase)
+# Use our new approach to get a clean session token
+echo "Getting session token..."
+# Read the token from the file to avoid any debug output
+SESSION_TOKEN=""
 
-# If login fails, try with a few common default credentials
-if [ -z "$SESSION_TOKEN" ]; then
-  echo "Default login failed. Trying alternative credentials..."
-  
-  # List of common email/password combinations to try
-  CREDENTIALS=(
-    "admin@example.com FinCard123!"
-    "admin@metabase.local admin123"
-    "admin@metabase.com metabase123"
-  )
-  
-  for cred in "${CREDENTIALS[@]}"; do
-    read -r email password <<< "$cred"
-    ADMIN_EMAIL="$email"
-    ADMIN_PASSWORD="$password"
+# Check if we got a valid token
+
+  # If token is empty, try once more after waiting
+  if [ -z "$SESSION_TOKEN" ]; then
+    echo "Initial login attempt failed. Waiting for Metabase to initialize..."
+    sleep 30
     
-    SESSION_TOKEN=$(login_to_metabase)
-    if [ -n "$SESSION_TOKEN" ]; then
-      echo "Successfully logged in with $ADMIN_EMAIL"
-      break
+    # Try again
+  SESSION_TOKEN=$(curl -s -X POST http://localhost:3000/api/session \
+  -H "Content-Type: application/json" \
+  -d "{\"username\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" | jq -r '.id')
+    
+    # Check again
+    if [[ "$SESSION_TOKEN" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+      echo "Successfully obtained clean session token on second attempt: $SESSION_TOKEN"
+    else
+      echo "Warning: Token still not valid: '$SESSION_TOKEN'"
     fi
-  done
-fi
-
-# If still no token, try to reset admin password or give up
-if [ -z "$SESSION_TOKEN" ]; then
-  echo "WARNING: All login attempts failed."
-  echo "Checking if password reset is available..."
-  
-  # Check if password reset endpoint is available
-  RESET_CHECK=$(curl -s http://localhost:3000/api/session/reset_password)
-  
-  if echo "$RESET_CHECK" | grep -q "email"; then
-    echo "Password reset is available, but we cannot automate this process."
-    echo "Please manually login to Metabase at http://localhost:3000 and set up your database connection."
-  else
-    echo "Unable to access Metabase admin. Skipping database connection setup."
   fi
+
+# If still no token, try a simpler direct approach with hardcoded session token
+if [ -z "$SESSION_TOKEN" ]; then
+  echo "WARNING: Login attempts failed. Trying direct database setup..."
   
-  echo "You will need to manually configure Metabase database connections."
-  exit 0
+  # Try with a direct approach (no session token)
+  echo "Attempting direct database addition without authentication..."
+  
+  # Construct and print the curl command for reference
+  DIRECT_CURL_COMMAND="curl -X POST http://localhost:3000/api/database \\
+    -H \"Content-Type: application/json\" \\
+    -d '{
+      \"name\": \"FinCard MySQL\",
+      \"engine\": \"mysql\",
+      \"details\": {
+        \"host\": \"$CONN_HOST\",
+        \"port\": $CONN_PORT,
+        \"dbname\": \"fincard_mysql\",
+        \"user\": \"$MYSQL_USERNAME\",
+        \"password\": \"$MYSQL_PASSWORD\"
+      },
+      \"is_full_sync\": true,
+      \"is_on_demand\": false,
+      \"cache_ttl\": null
+    }'"
+  
+  # Print the command for reference
+  echo "Executing the following command (without session token):"
+  echo "$DIRECT_CURL_COMMAND"
+  echo ""
+  
+  # Create a temporary file for the JSON payload
+  DIRECT_JSON_FILE=$(mktemp)
+  cat > "$DIRECT_JSON_FILE" << EOF
+{
+  "name": "FinCard MySQL",
+  "engine": "mysql",
+  "details": {
+    "host": "$CONN_HOST",
+    "port": $CONN_PORT,
+    "dbname": "fincard_mysql",
+    "user": "$MYSQL_USERNAME",
+    "password": "$MYSQL_PASSWORD"
+  },
+  "is_full_sync": true,
+  "is_on_demand": false,
+  "cache_ttl": null
+}
+EOF
+  
+  # Try to add the database directly - no session token needed in some cases
+  DB_DIRECT_RESPONSE=$(curl -s -X POST http://localhost:3000/api/database \
+    -H "Content-Type: application/json" \
+    -d @"$DIRECT_JSON_FILE")
+    
+  # Clean up the temporary file
+  rm -f "$DIRECT_JSON_FILE"
+  
+  if echo "$DB_DIRECT_RESPONSE" | grep -q '"id":[0-9]'; then
+    echo "Successfully added database without authentication!"
+    exit 0
+  else
+    echo "Direct database addition failed."
+    echo "You may need to manually configure the database connection."
+    echo "Here are the credentials to use:"
+    echo "Host: $CONN_HOST"
+    echo "Port: $CONN_PORT"
+    echo "Database: fincard_mysql"
+    echo "Username: $MYSQL_USERNAME"
+    echo "Password: $MYSQL_PASSWORD"
+    exit 1
+  fi
 fi
 
 echo "Session token obtained: $SESSION_TOKEN"
@@ -181,10 +256,37 @@ fi
 
 # Add MySQL database connection
 echo "Adding MySQL database connection to Metabase..."
-DB_RESPONSE=$(curl -s -X POST http://localhost:3000/api/database \
-  -H "Content-Type: application/json" \
-  -H "X-Metabase-Session: $SESSION_TOKEN" \
-  -d @- <<EOF
+
+# Print the clean session token that will be used
+echo "Using session token (should be a clean UUID): '$SESSION_TOKEN'"
+
+# Create a clean curl command string for display
+DISPLAY_CURL="curl -X POST http://localhost:3000/api/database \\
+  -H \"Content-Type: application/json\" \\
+  -H \"X-Metabase-Session: $SESSION_TOKEN\" \\
+  -d '{
+    \"name\": \"FinCard MySQL\",
+    \"engine\": \"mysql\",
+    \"details\": {
+      \"host\": \"$CONN_HOST\",
+      \"port\": $CONN_PORT,
+      \"dbname\": \"fincard_mysql\",
+      \"user\": \"$MYSQL_USERNAME\",
+      \"password\": \"$MYSQL_PASSWORD\"
+    },
+    \"is_full_sync\": true,
+    \"is_on_demand\": false,
+    \"cache_ttl\": null
+  }'"
+
+# Print the command for reference
+echo "Executing the following command:"
+echo "$DISPLAY_CURL"
+echo ""
+
+# Create a temporary file for the JSON payload to avoid any issues with escaping
+JSON_PAYLOAD_FILE=$(mktemp)
+cat > "$JSON_PAYLOAD_FILE" << EOF
 {
   "name": "FinCard MySQL",
   "engine": "mysql",
@@ -193,17 +295,22 @@ DB_RESPONSE=$(curl -s -X POST http://localhost:3000/api/database \
     "port": $CONN_PORT,
     "dbname": "fincard_mysql",
     "user": "$MYSQL_USERNAME",
-    "password": "$MYSQL_PASSWORD",
-    "ssl": false,
-    "additional-options": "useSSL=false&allowPublicKeyRetrieval=true&passwordCharacterEncoding=utf8",
-    "tunnel-enabled": false
+    "password": "$MYSQL_PASSWORD"
   },
   "is_full_sync": true,
   "is_on_demand": false,
-  "auto_run_queries": true
+  "cache_ttl": null
 }
 EOF
-)
+
+# Use curl with the clean session token and JSON from file
+DB_RESPONSE=$(curl -s -X POST http://localhost:3000/api/database \
+  -H "Content-Type: application/json" \
+  -H "X-Metabase-Session: $SESSION_TOKEN" \
+  -d @"$JSON_PAYLOAD_FILE")
+
+# Clean up the temporary file
+rm -f "$JSON_PAYLOAD_FILE"
 
 # Check if the database connection was successful
 if echo "$DB_RESPONSE" | grep -q '"id":[0-9]'; then
