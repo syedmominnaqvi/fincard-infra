@@ -18,9 +18,14 @@ sudo amazon-linux-extras install -y docker
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
+
 echo "Installing MySQL client (mariadb)..."
 sudo yum install -y mariadb
-echo "Installing python3-pip..."
+
+echo "Installing PostgreSQL client..."
+sudo amazon-linux-extras enable postgresql14
+sudo yum clean metadata
+sudo yum install -y postgresql
 
 # Node.js 16
 # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -36,14 +41,7 @@ echo "Installing python3-pip..."
 # npm -v
 
 
-echo "Installing Certbot..."
-# Enable EPEL repo
-sudo amazon-linux-extras enable epel -y
-sudo yum clean metadata
-sudo yum install -y epel-release
-
-# Install certbot and the nginx plugin from EPEL (Python 2 version works fine)
-sudo yum install -y certbot python2-certbot-nginx
+# SSL/TLS is now handled by ACM at the ALB level
 
 # Backend application setup
 cd /home/ec2-user
@@ -161,7 +159,7 @@ sudo docker run -d -p 5000:5000 --name fincard-backend \
       fincard-backend
   }
 
-# Configure Nginx as reverse proxy with SSL support
+# Configure Nginx as reverse proxy (HTTP only, SSL handled at ALB)
 echo "Configuring Nginx..."
 cat <<EOF | sudo tee /etc/nginx/conf.d/backend.conf
 server {
@@ -182,15 +180,10 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
     
-    # Let's Encrypt ACME challenge directory
-    location /.well-known/acme-challenge/ {
-        root /var/www/letsencrypt;
-    }
 }
 EOF
 
-sudo mkdir -p /var/www/letsencrypt
-sudo chown -R nginx:nginx /var/www/letsencrypt
+# SSL/TLS is now handled by ACM at the ALB level
 
 echo "*/5 * * * * ec2-user /home/ec2-user/postgres_tunnel.sh start >/dev/null 2>&1" | sudo tee -a /etc/crontab
 echo "*/5 * * * * ec2-user /home/ec2-user/mysql_tunnel.sh start >/dev/null 2>&1" | sudo tee -a /etc/crontab
@@ -198,10 +191,6 @@ echo "*/5 * * * * ec2-user /home/ec2-user/mysql_tunnel.sh start >/dev/null 2>&1"
 echo "Restarting Nginx..."
 sudo systemctl restart nginx
 
-echo "Requesting SSL certificate (will retry via cron if DNS isn't ready)..."
-sudo certbot --nginx -d api.jenkins-devops.store --non-interactive --agree-tos --email momin.naqvi.31515@khi.iba.edu.pk --redirect || true
-
-echo "0 0,12 * * * root python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
-echo "0 */6 * * * root certbot --nginx -d api.jenkins-devops.store --non-interactive --agree-tos --email momin.naqvi.31515@khi.iba.edu.pk --redirect || true" | sudo tee -a /etc/crontab > /dev/null
+# SSL/TLS is now handled by ACM at the ALB level
 
 echo "Backend instance setup completed!"

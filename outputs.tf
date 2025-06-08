@@ -94,20 +94,31 @@ output "metabase_domain_name" {
   value       = "bi.${var.domain_name}"
 }
 
+# ACM Certificate Outputs
+output "acm_certificate_arn" {
+  description = "The ARN of the ACM certificate"
+  value       = aws_acm_certificate.main.arn
+}
+
+output "acm_certificate_validation_arn" {
+  description = "The ARN of the validated ACM certificate"
+  value       = aws_acm_certificate_validation.main.certificate_arn
+}
+
 # Application URLs
 output "frontend_url" {
   description = "URL for the frontend application"
-  value       = "http://${var.domain_name}"
+  value       = "https://${var.domain_name}"
 }
 
 output "backend_url" {
   description = "URL for the backend API"
-  value       = "http://api.${var.domain_name}"
+  value       = "https://api.${var.domain_name}"
 }
 
 output "metabase_url" {
   description = "URL for the Metabase BI tool"
-  value       = "http://bi.${var.domain_name}"
+  value       = "https://bi.${var.domain_name}"
 }
 
 # SSH Tunnel Commands

@@ -45,6 +45,8 @@ variable "ami_id" {
   description = "AMI ID for EC2 instances (Amazon Linux 2)"
   type        = string
   default     = "ami-06e275de60164ac29" # Amazon Linux 2 in us-west-2, update for other regions
+  # For production, use the SSM parameter reference:
+  # default = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
 variable "key_name" {
@@ -122,6 +124,13 @@ variable "mysql_port" {
   default     = 3306
 }
 
+# ACM Certificate variables
+variable "ssl_policy" {
+  description = "SSL policy for HTTPS listeners"
+  type        = string
+  default     = "ELBSecurityPolicy-2016-08"
+}
+
 variable "db_storage" {
   description = "Storage size for the database in GB (minimum for free tier)"
   type        = number
@@ -159,3 +168,5 @@ variable "asg_desired_capacity" {
   type        = number
   default     = 1
 }
+
+# This SSL policy is already defined above at line 128
